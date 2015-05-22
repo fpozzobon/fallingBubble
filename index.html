@@ -1,0 +1,338 @@
+<!doctype html> 
+<html lang="en"> 
+<head> 
+	<meta charset="UTF-8" />
+	<title>Falling bubble</title>
+	<script type="text/javascript" src="js/phaser.min.js"></script>
+    <style type="text/css">
+        body {
+            margin: 0;
+        }
+    </style>
+</head>
+<body>
+
+<script type="text/javascript">
+
+var game = new Phaser.Game(800, 600, Phaser.AUTO, '', { preload: preload, create: create, update: update });
+var player;
+var platforms;
+var piques;
+var cursors;
+    
+var score = 0;
+var scoreText;
+    
+var foreground;
+var foreground2;
+    
+var w = 800;
+var h = 600;
+    
+var gameStarted = false;
+    
+var speedCoefficient=1;
+    
+var lastYPosition = 0;
+    
+var randomGenerator = new Phaser.RandomDataGenerator();
+
+function preload() {
+    game.load.image('bg1', 'img/background3.png');
+    game.load.image('bg2', 'img/background2.png');
+    game.load.image('bg3', 'img/background1.png');
+    game.load.spritesheet('bubble', 'img/bubble.png', 30, 35);
+    game.load.image('plateforme', 'img/plateforme.png');
+    game.load.image('pique', 'img/pique.png');
+    game.load.image('top', 'img/top.png');
+    game.load.image('menu', 'img/buttons/button.png');
+}
+
+function create() {
+
+    // The pause menu
+    showMenu();
+
+    
+}
+    
+    
+// initialize a group "groupInitialized" with the "imageName"
+function initGroup(groupInitialized , imageName){
+    groupInitialized.enableBody = true;
+    groupInitialized.physicsBodyType = Phaser.Physics.ARCADE;
+    groupInitialized.createMultiple(30, imageName);
+    groupInitialized.setAll('anchor.x', 0.5);
+    groupInitialized.setAll('anchor.y', 1);
+    groupInitialized.setAll('outOfBoundsKill', true);
+    groupInitialized.setAll('checkWorldBounds', true);
+}
+    
+    
+// start the game
+function startGame(){
+
+    speedCoefficient=1;
+    //  We're going to be using physics, so enable the Arcade Physics system
+    game.physics.startSystem(Phaser.Physics.ARCADE);
+    gameStarted = true;
+    game.add.sprite(0, 0, 'bg1');
+
+    // initialize the group of plateforms
+    platforms = game.add.group();
+    initGroup(platforms, 'plateforme');
+    piques = game.add.group();
+    initGroup(piques, 'pique');
+
+    // The player and its settings
+    player = game.add.sprite(game.width / 2, 3, 'bubble');
+    lastYPosition = 3;
+    
+    // initialize the background
+    foreground2 = game.add.tileSprite(0, 0, w, h, 'bg2');
+    foreground = game.add.tileSprite(0, 0, w, h, 'bg3');
+    game.add.sprite(0, 0, 'top');
+
+    //  We need to enable physics on the player
+    game.physics.arcade.enable(player);
+
+    //  Player physics properties. Give the little guy a slight bounce.
+    player.body.bounce.y = 0.2;
+    player.body.gravity.y = 300;
+
+    //  Our two animations, walking left and right.
+    player.animations.add('left', [0], 3, true);
+    player.animations.add('right', [2], 3, true);
+
+    cursors = game.input.keyboard.createCursorKeys();
+
+    score = 0;
+    scoreText = game.add.text(16, 16, '', { fontSize: '32px', fill: '#000' });
+    showScore(0);
+    
+    
+    // Create a label to use as a button
+    var pause_label = game.add.text(w - 100, 20, 'Pause', { font: '24px Arial', fill: '#fff' });
+    pause_label.inputEnabled = true;
+    pause_label.events.onInputUp.add(showMenu);
+    
+    addItem(platforms, player.x, game.height);
+    addItem(platforms, game.width - (game.width / 4), game.height);
+    addItem(platforms, game.width, game.height);
+    addItem(platforms, game.width / 4, game.height);
+    addItem(platforms, 0, game.height);
+
+}
+    
+var counter = 0;
+
+function update() {
+
+    if(gameStarted){
+    
+        playerMovement();
+
+        // moving the foreground
+        moveForeground();
+                
+        // creating a new item
+        createNewItem();
+        
+        // updating the game speed
+        updateGameSpeed();
+        
+    }
+    
+}
+    
+function showScore(_score){
+    scoreText.text = "score : "+_score;
+}
+    
+function playerMovement(){
+        
+        //  Collide the player with the platforms
+        game.physics.arcade.collide(player, platforms);
+        game.physics.arcade.collide(player, piques, hurtCollision);
+
+        if (cursors.left.isDown)
+        {
+            //  Move to the left
+            player.body.velocity.x = -150;
+
+            player.animations.play('left');
+        }
+        else if (cursors.right.isDown)
+        {
+            //  Move to the right
+            player.body.velocity.x = 150;
+
+            player.animations.play('right');
+        }
+        else
+        {
+            //  Stand still
+            player.animations.stop();
+
+            player.frame = 1;
+        }
+
+        //  The player jump automaticaly
+        if (player.body.touching.down)
+        {
+            var gapFalling =  lastYPosition - player.position.y;
+            player.body.velocity.y = gapFalling;
+            lastYPosition = player.position.y;
+        }else{
+            if(lastYPosition > player.position.y){
+                lastYPosition = player.position.y;
+            }
+        }
+    
+    
+        // The player is not allowed to go on left or right of the screen
+        if((player.position.x +player.width) >= game.width){
+            player.position.x = game.width - player.width;
+        }else if(player.position.x <= 0){
+            player.position.x = 0;
+        }
+    
+        // if the player touche the ground or the top, he is dead
+        if(player.position.y >= game.height
+          || player.position.y <= 0){
+            gameOver();
+        }
+}
+
+function gameOver(){
+    showMenu();
+    gameStarted = false;
+}
+    
+function hurtCollision(player, platform) {
+    gameOver();
+}
+    
+var itemCreationTime = 0;    
+
+// function that update the foreground movement
+function moveForeground(){
+    
+        // moving the forground
+        foreground.tilePosition.y += 0.3 * speedCoefficient;
+        foreground2.tilePosition.x += 0.2 * speedCoefficient;
+        foreground2.tilePosition.y += 0.1 * speedCoefficient;
+}
+    
+// function which create new item (plateform, pique etc...)
+function createNewItem () {
+
+    //  Elapsed time beetween two creations of plateforms
+    if (game.time.now > itemCreationTime)
+    {
+        score += 1;
+        showScore(score);
+        
+        // defining the x position of the platform randomly
+        var positionX = randomGenerator.between(0, game.width);
+        
+        // picking a number between 1 and 3, if it's 3 we generate a pique
+        // else it is a platform
+        var plateformType = randomGenerator.between(1, 2);
+        if(plateformType == 2){
+            addItem(piques, positionX, game.height);
+        }else{
+            addItem(platforms, positionX, game.height);
+        }
+    }
+
+}
+    
+// add a plateform
+function addItem(items, x, y){
+        //  Grab the first platform we can from the pool
+        var item = items.getFirstExists(false);
+
+        if (item){
+          item.reset(x, y);
+          updateVelocity(item);
+          item.body.allowGravity = false;
+          item.body.immovable = true;
+          item.outOfBoundsKill = true;
+          item.checkWorldBounds = true;
+          itemCreationTime = game.time.now + (9000 / speedCoefficient);
+        }
+    
+}
+   
+    
+var gameSpeedUpdateTime = 0;    
+// function updating the game speed
+function updateGameSpeed(){
+    
+    //  Elapsed time beetween two creations of plateforms
+    if (game.time.now > gameSpeedUpdateTime)
+    {
+        // increasing the velocity
+        speedCoefficient += 0.1;
+        
+        // Updating the velocity to plateforms
+        platforms.forEachExists(updateVelocity, this);
+        piques.forEachExists(updateVelocity, this);
+        gameSpeedUpdateTime = game.time.now + 2000;
+    }
+}
+    
+var PLATFORM_INITIAL_SPEED = -5;
+function updateVelocity(child){
+    child.body.velocity.y = PLATFORM_INITIAL_SPEED * speedCoefficient;
+}
+
+// variable getting the hour in pause
+var pauseAt = game.time.now;
+
+// show the menu
+function showMenu(){
+        pauseAt = game.time.now;
+        // When the paus button is pressed, we pause the game
+        game.paused = true;
+
+        // Then add the menu
+        menu = game.add.sprite(w/2, h/2, 'menu');
+        menu.anchor.setTo(0.5, 0.5);
+
+        // Add a input listener that can help us return from being paused
+        game.input.onDown.add(unpause, self);
+}
+    
+// And finally the method that handels the pause menu
+function unpause(event){
+    // Only act if paused
+    if(game.paused){
+        
+        // Calculate the corners of the menu
+        var x1 = w/2 - 270/2, x2 = w/2 + 270/2,
+            y1 = h/2 - 180/2, y2 = h/2 + 180/2;
+
+        // Check if the click was inside the menu
+        if(event.x > x1 && event.x < x2 && event.y > y1 && event.y < y2 ){
+            // Remove the menu and the label
+            menu.destroy();
+            
+            // when unpaused, restore the time elapsed
+            itemCreationTime = itemCreationTime + game.time.now - pauseAt;
+            
+            if(!gameStarted){
+                startGame();
+            }
+            
+            game.paused = false;
+        }
+    }
+}    
+
+
+</script>
+
+</body>
+</html>
