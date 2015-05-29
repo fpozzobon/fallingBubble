@@ -4,6 +4,7 @@
 	<meta charset="UTF-8" />
 	<title>Falling bubble</title>
 	<script type="text/javascript" src="js/phaser.min.js"></script>
+	<script type="text/javascript" src="js/class/platform.js"></script>
     <style type="text/css">
         body {
             margin: 0;
@@ -61,12 +62,14 @@ function create() {
 function initGroup(groupInitialized , imageName){
     groupInitialized.enableBody = true;
     groupInitialized.physicsBodyType = Phaser.Physics.ARCADE;
+    groupInitialized.classType = Platform;
     groupInitialized.createMultiple(30, imageName);
     groupInitialized.setAll('anchor.x', 0.5);
     groupInitialized.setAll('anchor.y', 1);
     groupInitialized.setAll('outOfBoundsKill', true);
     groupInitialized.setAll('checkWorldBounds', true);
 }
+    
     
     
 // start the game
@@ -141,6 +144,7 @@ function update() {
         // updating the game speed
         updateGameSpeed();
         
+        
     }
     
 }
@@ -173,6 +177,7 @@ function playerMovement(){
         {
             //  Stand still
             player.animations.stop();
+            player.body.velocity.x = 0;
 
             player.frame = 1;
         }
@@ -255,6 +260,23 @@ function addItem(items, x, y){
 
         if (item){
           item.reset(x, y);
+          
+          var movingType = randomGenerator.between(1, 2);
+          if(movingType == 2){
+              // determine randomly if the platform move or not
+              var xMin = x-100;
+              if(xMin < 0){
+                  xMin = 0;
+              }
+              var xMax = x+100;
+              if(xMax > (game.width-item.body.width)){
+                  xMax = game.width-item.body.width;
+              }
+              item.updateBehavior = new MovingUpdateBehavior(item, xMin, xMax, 0.5);
+          }else{
+              item.updateBehavior = new DefaultUpdateBehavior(item);
+          }
+            
           updateVelocity(item);
           item.body.allowGravity = false;
           item.body.immovable = true;
@@ -287,6 +309,7 @@ var PLATFORM_INITIAL_SPEED = -5;
 function updateVelocity(child){
     child.body.velocity.y = PLATFORM_INITIAL_SPEED * speedCoefficient;
 }
+
 
 // variable getting the hour in pause
 var pauseAt = game.time.now;
